@@ -26,7 +26,41 @@ def highlightFace(net, frame, conf_threshold=0.7):
 
             cv2.rectangle(frameOpencvDnn, (x1, y1), (x2, y2), (0, 225, 0), int(round(frameHight/150)), 8)
 
+    frameOpencvDnn = age_and_gender(frame,faceBoxes,frameOpencvDnn)
+
+
+
     return frameOpencvDnn, faceBoxes
+
+
+def age_and_gender(frame,faceBoxes, frameOpencvDnn):
+    for faceBox in faceBoxes:
+        # получаем изображение лица на основе рамки
+        face=frame[max(0,faceBox[1]):
+                   min(faceBox[3],frame.shape[0]-1),max(0,faceBox[0])
+                   :min(faceBox[2], frame.shape[1]-1)]
+        # получаем на этой основе новый бинарный пиксельный объект
+        blob=cv2.dnn.blobFromImage(face, 1.0, (227,227), MODEL_MEAN_VALUES, swapRB=False)
+        # отправляем его в нейросеть для определения пола
+        genderNet.setInput(blob)
+        # получаем результат работы нейросети
+        genderPreds=genderNet.forward()
+        # выбираем пол на основе этого результата
+        gender=genderList[genderPreds[0].argmax()]
+        # отправляем результат в переменную с полом
+
+        # делаем то же самое для возраста
+        ageNet.setInput(blob)
+        agePreds=ageNet.forward()
+        age=ageList[agePreds[0].argmax()]
+
+        # добавляем текст возле каждой рамки в кадре
+
+        cv2.putText(frameOpencvDnn, f'{gender}, {age}', (faceBox[0], faceBox[1] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.8,
+                    (0, 255, 255), 2, cv2.LINE_AA)
+        return frameOpencvDnn
+
+
 
 
 video = cv2.VideoCapture(0)
@@ -34,6 +68,22 @@ video = cv2.VideoCapture(0)
 faceProto = "opencv_face_detector.pbtxt"
 faceModel = "opencv_face_detector_uint8.pb"
 faceNet = cv2.dnn.readNet(faceModel, faceProto)
+
+genderProto="gender_deploy.prototxt"
+genderModel="gender_net.caffemodel"
+ageProto="age_deploy.prototxt"
+ageModel="age_net.caffemodel"
+
+# настраиваем свет
+MODEL_MEAN_VALUES=(78.4263377603, 87.7689143744, 114.895847746)
+# итоговые результаты работы нейросетей для пола и возраста
+genderList=['Male ','Female']
+ageList=['(0-2)', '(4-6)', '(8-12)', '(15-20)', '(25-32)', '(38-43)', '(48-53)', '(60-100)']
+
+# запускаем нейросети по определению пола и возраста
+genderNet=cv2.dnn.readNet(genderModel,genderProto)
+ageNet=cv2.dnn.readNet(ageModel,ageProto)
+
 
 def loadFromImg(path):
 
@@ -45,7 +95,14 @@ def loadFromImg(path):
         if not faceBoxes:
             print("Лица не распознаны")
 
-        cv2.imshow("Face recognition", resultImg)
+
+
+
+        else:
+            return cv2.cvtColor(resultImg, cv2.COLOR_BGR2RGB)
+
+
+
 
 def loadFromCam():
 
@@ -56,7 +113,10 @@ def loadFromCam():
     if not faceBoxes:
         print("Лица не распознаны")
 
-    cv2.imshow("Face recognition", resultImg)
+    else:
+        return cv2.cvtColor(resultImg, cv2.COLOR_BGR2RGB)
+
+
 
 
 
